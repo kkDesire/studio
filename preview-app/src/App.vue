@@ -3,12 +3,12 @@ import { ref, watch, computed, reactive } from 'vue'
 import PreviewEditor from './components/PreviewEditor.vue'
 import ContentsListModal from './components/ContentsListModal.vue'
 import { usePreview } from './composables/usePreview'
+import PreviewToolbar from './components/PreviewToolbar.vue'
+import CommitPreviewModal from './components/CommitPreviewModal.vue'
 
 const { host, draftFile, draftFiles } = usePreview()
 
 const activeContents = ref<{ id: string, label: string, value: string }[]>([])
-
-const toolbarWrapper = ref<HTMLElement | null>(null)
 
 const selectedContentId = ref<string | null>(null)
 const selectedContent = ref<any | null>(null)
@@ -23,18 +23,35 @@ const contentItems = computed(() => {
   const items = []
   if (activeContents.value.length > 0) {
     items.unshift(
-      ...activeContents.value,
+      activeContents.value,
     )
   }
 
-  items.push({
+  if (draftFiles.value.length > 0) {
+    items.push([
+      {
+        label: `Drafts (${draftFiles.value.length})`,
+        children: draftFiles.value.map((draft) => {
+          return {
+            label: draft.id,
+            value: draft.id,
+            onSelect: () => {
+              onContentSelect(draft.id)
+            },
+          }
+        }),
+      },
+    ])
+  }
+
+  items.push([{
     id: 'show-all-contents',
     label: 'Show all contents',
     value: 'show-all-contents',
     onSelect: () => {
       ui.contentsListVisibility = true
     },
-  })
+  }])
 
   return items
 })
@@ -42,18 +59,7 @@ const contentItems = computed(() => {
 const isLeftSidebarOpen = computed(() => {
   return ui.editorVisibility
 })
-const ongoingDrafts = computed(() => {
-  return draftFiles.value.map((draft) => {
-    return {
-      id: draft.id,
-      label: draft.id,
-      value: draft.id,
-      onSelect: () => {
-        onContentSelect(draft.id)
-      },
-    }
-  })
-})
+
 
 watch(isLeftSidebarOpen, (value) => {
   if (value) {
@@ -109,62 +115,22 @@ host.onMounted(() => {
         class="dark"
       >
         <div>
-          <div ref="toolbarWrapper"
-            class="toolbar-wrapper"
-            style=" transition: all 0.3s ease; height: 60px;"
-          >
-            <div
-              id="__nuxt_preview_toolbar_placeholder"
-              part="toolbar-placeholder"
-            >
-&nbsp;
-            </div>
-            <div
-              id="__nuxt_preview_toolbar"
-              part="toolbar"
-              class="relative"
-            >
-              <div class="flex gap-2">
-                <UDropdownMenu
-                  :portal="false"
-                  :items="contentItems"
-                  placeholder="Select a content"
-                >
-                  <UButton
-                    label="Contents"
-                    icon="i-lucide-menu"
-                    color="neutral"
-                    variant="solid"
-                  />
-                </UDropdownMenu>
-                <UDropdownMenu
-                  :portal="false"
-                  :items="activeContents"
-                  placeholder="Select a content"
-                >
-                  <UButton
-                    label="Open"
-                    icon="i-lucide-menu"
-                    color="neutral"
-                    variant="solid"
-                  />
-                </UDropdownMenu>
-                <UDropdownMenu
-                  v-if="draftFiles.length"
-                  :portal="false"
-                  :items="ongoingDrafts"
-                  placeholder="Select a content"
-                >
-                  <UButton
-                    icon="i-lucide-menu"
-                    color="neutral"
-                    variant="solid"
-                  >
-                    {{ draftFiles.length ? `Drafts (${draftFiles.length})` : 'No Drafts' }}
-                  </UButton>
-                </UDropdownMenu>
-              </div>
-
+          <PreviewToolbar>
+            <template #left>
+              <UDropdownMenu
+                :portal="false"
+                :items="contentItems"
+                placeholder="Select a content"
+              >
+                <UButton
+                  label="Contents"
+                  icon="i-ph-list"
+                  color="neutral"
+                  variant="ghost"
+                />
+              </UDropdownMenu>
+            </template>
+            <template #right>
               <UButton
                 label="Save Changes"
                 color="primary"
@@ -172,8 +138,8 @@ host.onMounted(() => {
                 :disabled="!draftFiles.length"
                 @click="ui.commitPreviewVisibility = true"
               />
-            </div>
-          </div>
+            </template>
+          </PreviewToolbar>
 
           <PreviewEditor
             v-model="ui.editorVisibility"
